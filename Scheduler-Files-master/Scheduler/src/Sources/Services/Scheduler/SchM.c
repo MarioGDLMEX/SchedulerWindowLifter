@@ -11,8 +11,8 @@
 *=============================================================================*/
 /* DESCRIPTION : C source template file                                       */
 /*============================================================================*/
-/* FUNCTION COMMENT : This file describes the C source template according to  */
-/* the new software platform                                                  */
+/* FUNCTION COMMENT : Vertion 2.0 SchM_OsTick is modificate to array          */
+/*                                                                            */
 /*                                                                            */
 /*============================================================================*/
 /*                               OBJECT HISTORY                               */
@@ -49,7 +49,6 @@
 /* Definition of RAM variables                          */
 /*======================================================*/ 
 /* BYTE RAM variables */
-const SchConfigType * rp_SchM_Config;
 
 
 /* WORD RAM variables */
@@ -57,15 +56,6 @@ const SchConfigType * rp_SchM_Config;
 
 /* LONG and STRUCTURE RAM variables */
 SchControlType SchM_Control;
-/*SchTaskControlType SchM_TaskControl[]= 
-{
-	{TASK_STATE_SUSPENDED,(void*)0},
-	{TASK_STATE_SUSPENDED,(void*)0},
-	{TASK_STATE_SUSPENDED,(void*)0},
-	{TASK_STATE_SUSPENDED,(void*)0},
-	{TASK_STATE_SUSPENDED,(void*)0},
-	{TASK_STATE_SUSPENDED,(void*)0},
-};*/
 SchTaskControlType *SchM_TaskControlPtr;
 
 
@@ -115,13 +105,10 @@ SchTaskControlType *SchM_TaskControlPtr;
  **************************************************************/
 void SchM_Init( const SchConfigType *SchM_Config )
 {
-	//numero de tareas
-	//recorrerlo en el for
 	T_UBYTE lub_counter_task;
 	PIT_device_init();
-    PIT_channel_configure(PIT_CHANNEL_0 , SchM_OsTick);	
-    rp_SchM_Config = SchM_Config;
-	SchM_TaskControlPtr = (SchTaskControlType *)(sizeof(SchM_Config->SchNumberOfTask));
+    PIT_channel_configure(PIT_CHANNEL_0 , SchM_OsTick);
+	SchM_TaskControlPtr = (SchTaskControlType *)malloc(SchM_Config->SchNumberOfTask*sizeof(SchTaskControlType));
 	for(lub_counter_task = 0; lub_counter_task < SchM_Config->SchNumberOfTask; lub_counter_task++)
 	{
 		SchM_TaskControlPtr[lub_counter_task].SchTaskState = TASK_STATE_SUSPENDED; 
@@ -175,11 +162,10 @@ void SchM_Start(void)
 void SchM_OsTick(void)
 {
 	T_UBYTE lub_counter_task;
-	SchConfigType *lp_SchM_Config;
-	lp_SchM_Config = rp_SchM_Config;
 	SchM_Control.SchCounter++;
 	for(lub_counter_task = 0; lub_counter_task < lp_SchM_Config->SchNumberOfTask; lub_counter_task++)
 	{
+		
 		if( ((lp_SchM_Config+lub_counter_task)->SchTaskTable->SchTaskMask &=SchM_Control.SchCounter) == (lp_SchM_Config+lub_counter_task)->SchTaskTable->SchTaskOffset )
 		{
 			(SchM_TaskControlPtr+lub_counter_task)->SchTaskState = TASK_STATE_READY;
