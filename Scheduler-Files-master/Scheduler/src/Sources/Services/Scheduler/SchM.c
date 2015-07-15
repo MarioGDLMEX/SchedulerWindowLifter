@@ -11,8 +11,8 @@
 *=============================================================================*/
 /* DESCRIPTION : C source template file                                       */
 /*============================================================================*/
-/* FUNCTION COMMENT : Vertion 2.0 SchM_OsTick is modificate to array          */
-/*                                                                            */
+/* FUNCTION COMMENT : This file describes the C source template according to  */
+/* the new software platform                                                  */
 /*                                                                            */
 /*============================================================================*/
 /*                               OBJECT HISTORY                               */
@@ -49,6 +49,7 @@
 /* Definition of RAM variables                          */
 /*======================================================*/ 
 /* BYTE RAM variables */
+const SchConfigType *rp_SchM_Config;
 
 
 /* WORD RAM variables */
@@ -107,8 +108,9 @@ void SchM_Init( const SchConfigType *SchM_Config )
 {
 	T_UBYTE lub_counter_task;
 	PIT_device_init();
-    PIT_channel_configure(PIT_CHANNEL_0 , SchM_OsTick);
-	SchM_TaskControlPtr = (SchTaskControlType *)malloc(SchM_Config->SchNumberOfTask*sizeof(SchTaskControlType));
+    PIT_channel_configure(PIT_CHANNEL_0 , SchM_OsTick);	
+    rp_SchM_Config = SchM_Config;
+	SchM_TaskControlPtr = (SchTaskControlType*)malloc(SchM_Config->SchNumberOfTask*sizeof(SchTaskControlType));
 	for(lub_counter_task = 0; lub_counter_task < SchM_Config->SchNumberOfTask; lub_counter_task++)
 	{
 		SchM_TaskControlPtr[lub_counter_task].SchTaskState = TASK_STATE_SUSPENDED; 
@@ -146,7 +148,7 @@ void SchM_Stop(void)
 void SchM_Start(void)
 {
 	PIT_channel_start(PIT_CHANNEL_0);
-	SchM_Control.SchStatus = SCH_INIT;
+	SchM_Control.SchStatus = SCH_RUNNING;
 	SchM_Background();
 }
 
@@ -162,13 +164,14 @@ void SchM_Start(void)
 void SchM_OsTick(void)
 {
 	T_UBYTE lub_counter_task;
+	T_UBYTE lub_maskResult;
 	SchM_Control.SchCounter++;
-	for(lub_counter_task = 0; lub_counter_task < lp_SchM_Config->SchNumberOfTask; lub_counter_task++)
+	for(lub_counter_task = 0; lub_counter_task < rp_SchM_Config->SchNumberOfTask; lub_counter_task++)
 	{
-		
-		if( ((lp_SchM_Config+lub_counter_task)->SchTaskTable->SchTaskMask &=SchM_Control.SchCounter) == (lp_SchM_Config+lub_counter_task)->SchTaskTable->SchTaskOffset )
+		lub_maskResult = rp_SchM_Config[lub_counter_task].SchTaskTable->SchTaskMask & SchM_Control.SchCounter;
+		if( lub_maskResult == rp_SchM_Config[lub_counter_task].SchTaskTable->SchTaskOffset )
 		{
-			(SchM_TaskControlPtr+lub_counter_task)->SchTaskState = TASK_STATE_READY;
+			SchM_TaskControlPtr[lub_counter_task].SchTaskState = TASK_STATE_READY;
 		}
 		else
 		{
@@ -189,19 +192,17 @@ void SchM_OsTick(void)
 void SchM_Background(void)
 {
 	T_UBYTE lub_counter_task;
-	T_UBYTE lub_counter_control_task = (sizeof(SchM_TaskControl)/sizeof(SchM_TaskControl[0]));
 	for(;;)
 	{
-		SchM_TaskControlPtr = SchM_TaskControl;
-		for(lub_counter_task = 0; lub_counter_task < lub_counter_control_task; lub_counter_task++)
+		for(lub_counter_task = 0; lub_counter_task < rp_SchM_Config->SchNumberOfTask; lub_counter_task++)
 		{
-			if( (SchM_TaskControlPtr+lub_counter_task)->SchTaskState == TASK_STATE_READY )
+			if( SchM_TaskControlPtr[lub_counter_task].SchTaskState == TASK_STATE_READY )
 			{
-				SchM_Control.SchStatus = SCH_RUNNING;
-				(SchM_TaskControlPtr+lub_counter_task)->SchTaskState = TASK_STATE_RUNNING;
-				(SchM_TaskControlPtr+lub_counter_task)->TaskFunctionControlPtr();
-				SchM_Control.SchStatus = SCH_INIT;//Ask to the teacher idle
-				(SchM_TaskControlPtr+lub_counter_task)->SchTaskState = TASK_STATE_SUSPENDED;
+				//SchM_Control.SchStatus = SCH_RUNNING;
+				SchM_TaskControlPtr[lub_counter_task].SchTaskState = TASK_STATE_RUNNING;
+				SchM_TaskControlPtr[lub_counter_task].TaskFunctionControlPtr();
+				//SchM_Control.SchStatus = SCH_INIT;//Ask to the teacher idle
+				SchM_TaskControlPtr[lub_counter_task].SchTaskState = TASK_STATE_SUSPENDED;
 				
 			}
 			else
